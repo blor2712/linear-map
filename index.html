@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>음함수 선형변환 시각화 도구</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- MathJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .code-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom scrollbar for control sidebar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col md:flex-row overflow-hidden select-none">
+
+    <!-- Sidebar Controls -->
+    <aside class="w-full md:w-96 bg-slate-900/90 border-r border-slate-800 flex flex-col h-auto md:h-screen z-10 backdrop-blur-md overflow-y-auto">
+        <!-- Header -->
+        <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-400">
+                    <i data-lucide="grid" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-white leading-tight">음함수 선형변환</h1>
+                    <p class="text-xs text-slate-400">Linear Map of Implicit Curves</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-5 space-y-6 flex-1">
+            
+            <!-- Implicit Function Input -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">음함수 식 $f(x, y) = 0$</label>
+                    <span id="func-status" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">유효함</span>
+                </div>
+                <div class="relative">
+                    <input type="text" id="expr-input" value="x^2 + y^2 - 16" 
+                        class="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm code-font text-indigo-300 focus:outline-none transition shadow-inner">
+                </div>
+                
+                <!-- Preset Curves -->
+                <div class="pt-1">
+                    <span class="text-[11px] text-slate-400 block mb-1.5 font-medium">곡선 프리셋:</span>
+                    <div class="flex flex-wrap gap-1.5">
+                        <button onclick="setCurvePreset('x^2 + y^2 - 16')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700/50 transition">원</button>
+                        <button onclick="setCurvePreset('x^2/25 + y^2/9 - 1')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700/50 transition">타원</button>
+                        <button onclick="setCurvePreset('x^2/9 - y^2/9 - 1')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700/50 transition">쌍곡선</button>
+                        <button onclick="setCurvePreset('x^3 + y^3 - 6*x*y')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700/50 transition">데카르트 잎</button>
+                        <button onclick="setCurvePreset('(x^2 + y^2)^2 - 16*(x^2 - y^2)')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700/50 transition">레무니스케이트</button>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="border-slate-800">
+
+            <!-- Matrix Input -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">변환 행렬 $M = \begin{bmatrix} a & b \\ c & d \end{bmatrix}$</label>
+                    <span id="det-badge" class="text-[11px] code-font text-slate-300">det(M) = 1.00</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-slate-500 font-bold">a:</span>
+                        <input type="number" step="0.1" id="m-a" value="1.5" oninput="updateMatrixFromInputs()" 
+                            class="w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-2.5 py-1.5 text-center text-sm code-font text-slate-200">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-slate-500 font-bold">b:</span>
+                        <input type="number" step="0.1" id="m-b" value="0.5" oninput="updateMatrixFromInputs()" 
+                            class="w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-2.5 py-1.5 text-center text-sm code-font text-slate-200">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-slate-500 font-bold">c:</span>
+                        <input type="number" step="0.1" id="m-c" value="0.0" oninput="updateMatrixFromInputs()" 
+                            class="w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-2.5 py-1.5 text-center text-sm code-font text-slate-200">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-slate-500 font-bold">d:</span>
+                        <input type="number" step="0.1" id="m-d" value="1.0" oninput="updateMatrixFromInputs()" 
+                            class="w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-2.5 py-1.5 text-center text-sm code-font text-slate-200">
+                    </div>
+                </div>
+
+                <!-- Matrix Presets -->
+                <div class="pt-1">
+                    <span class="text-[11px] text-slate-400 block mb-1.5 font-medium">선형변환 프리셋:</span>
+                    <div class="flex flex-wrap gap-1.5">
+                        <button onclick="setMatrixPreset(1, 0, 0, 1)" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700/50 transition">항등 (Identity)</button>
+                        <button onclick="setMatrixPreset(0.707, -0.707, 0.707, 0.707)" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700/50 transition">45° 회전</button>
+                        <button onclick="setMatrixPreset(2, 0, 0, 0.5)" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700/50 transition">축적 (Scale)</button>
+                        <button onclick="setMatrixPreset(1, 0.8, 0, 1)" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700/50 transition">전단 (Shear X)</button>
+                        <button onclick="setMatrixPreset(-1, 0, 0, 1)" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700/50 transition">Y축 대칭</button>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="border-slate-800">
+
+            <!-- Animation Controls -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">변환 보간 애니메이션</label>
+                    <span id="anim-progress" class="text-xs code-font text-indigo-400">100%</span>
+                </div>
+                <input type="range" id="anim-slider" min="0" max="1" step="0.01" value="1" 
+                    class="w-full accent-indigo-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+                
+                <div class="flex gap-2">
+                    <button id="btn-play" onclick="toggleAnimation()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+                        <i data-lucide="play" class="w-4 h-4" id="play-icon"></i>
+                        <span id="play-text">변환 실행</span>
+                    </button>
+                    <button onclick="resetAnimation()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl text-xs font-semibold border border-slate-700 transition">
+                        초기화
+                    </button>
+                </div>
+            </div>
+
+            <hr class="border-slate-800">
+
+            <!-- Focus Visualization Toggle -->
+            <div class="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-slate-800">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="target" class="w-4 h-4 text-indigo-400"></i>
+                    <span class="text-xs font-medium text-slate-200">이차곡선 초점 (Foci) 표시</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-foci" onchange="render()" class="sr-only peer" checked>
+                    <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+            </div>
+
+            <hr class="border-slate-800">
+
+            <!-- Dynamic Transformation Math Info -->
+            <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-3 text-xs">
+                <div class="font-semibold text-slate-300 flex items-center justify-between">
+                    <span class="flex items-center gap-1.5">
+                        <i data-lucide="calculator" class="w-3.5 h-3.5 text-rose-400"></i>
+                        변환된 음함수 대수식
+                    </span>
+                    <span id="conic-type-badge" class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-medium">타원</span>
+                </div>
+
+                <!-- Symbolic Substituted Equation Box -->
+                <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800/80 space-y-1 shadow-inner">
+                    <span class="text-[10px] text-slate-400 font-medium block">1. 역행렬 치환 형태 $f(M^{-1}[u,v]^T) = 0$:</span>
+                    <div id="symbolic-eq-display" class="code-font text-[11px] text-cyan-300 font-medium leading-relaxed break-all">
+                        <!-- Symbolic equation rendered here -->
+                    </div>
+                </div>
+
+                <!-- Transformed Expanded Equation Result Box -->
+                <div class="bg-slate-900/90 p-3 rounded-lg border border-slate-800 space-y-1.5 shadow-inner">
+                    <span class="text-[10px] text-slate-400 font-medium block">2. 전개된 전형식 $g(u, v) = 0$:</span>
+                    <div id="transformed-eq-display" class="code-font text-xs text-rose-300 font-semibold leading-relaxed break-all">
+                        <!-- Transformed equation rendered here -->
+                    </div>
+                </div>
+
+                <!-- Foci Data Display -->
+                <div id="foci-info-box" class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 space-y-1 shadow-inner text-[11px] font-mono">
+                    <span class="text-[10px] text-indigo-400 font-sans font-medium block flex items-center gap-1">
+                        <i data-lucide="crosshair" class="w-3 h-3"></i> 초점 위치 (Foci Coordinates)
+                    </span>
+                    <div id="orig-foci-text" class="text-purple-300">원본 F(x,y): 계산 중...</div>
+                    <div id="trans-foci-text" class="text-rose-300 font-semibold">실제 변환 초점 F'_g(u,v): 계산 중...</div>
+                    <div id="mapped-foci-text" class="text-amber-300/80 text-[10px]">매핑점 M·F: 계산 중...</div>
+                </div>
+
+                <div class="text-slate-400 text-[11px] leading-relaxed space-y-1 border-t border-slate-800/60 pt-2">
+                    <div class="flex justify-between items-center text-[10px]">
+                        <span>원본 형태: <span id="orig-coeffs" class="code-font text-slate-300"></span></span>
+                        <span>판별식 Δ = B'²-4A'C': <span id="discriminant-val" class="code-font text-slate-300"></span></span>
+                    </div>
+                </div>
+
+                <div id="matrix-info" class="code-font text-[10px] text-slate-400 bg-slate-900 p-2 rounded border border-slate-800/60 overflow-x-auto">
+                    <!-- Dynamic Inverse Formula -->
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Render Precision Controls Footer -->
+        <div class="p-4 border-t border-slate-800 bg-slate-900/50 flex justify-between items-center text-xs text-slate-400">
+            <span class="flex items-center gap-1">
+                해상도:
+                <select id="grid-res" onchange="render()" class="bg-slate-950 text-slate-200 border border-slate-700 rounded px-1.5 py-0.5 text-xs focus:outline-none">
+                    <option value="120">보통</option>
+                    <option value="180" selected>높음</option>
+                    <option value="250">최고 (느림)</option>
+                </select>
+            </span>
+            <button onclick="resetView()" class="hover:text-white flex items-center gap-1">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                화면 리셋
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Canvas Viewport -->
+    <main class="flex-1 relative bg-slate-950 overflow-hidden flex flex-col justify-center items-center">
+        <!-- Canvas -->
+        <canvas id="plotCanvas" class="w-full h-full cursor-grab active:cursor-grabbing block"></canvas>
+
+        <!-- Overlay Legend / Status -->
+        <div class="absolute top-4 left-4 pointer-events-none flex flex-col gap-2">
+            <div class="bg-slate-900/80 backdrop-blur-md border border-slate-800 px-3 py-2 rounded-xl flex items-center gap-3 text-xs shadow-lg">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3 h-3 rounded-full bg-cyan-400 inline-block shadow-[0_0_8px_rgba(34,211,238,0.6)]"></span>
+                    <span class="text-slate-200 font-medium">원본 곡선 $f(x,y)=0$</span>
+                </div>
+                <div class="flex items-center gap-1.5 border-l border-slate-700 pl-3">
+                    <span class="w-3 h-3 rounded-full bg-rose-500 inline-block shadow-[0_0_8px_rgba(244,63,94,0.6)]"></span>
+                    <span class="text-slate-200 font-medium">변환 곡선 $g(u,v)=0$</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Canvas Floating Controls (Zoom/Pan Help) -->
+        <div class="absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-xl p-1.5 flex gap-1 text-slate-300 shadow-lg">
+            <button onclick="zoom(1.2)" class="p-2 hover:bg-slate-800 rounded-lg transition" title="확대">
+                <i data-lucide="zoom-in" class="w-4 h-4"></i>
+            </button>
+            <button onclick="zoom(1/1.2)" class="p-2 hover:bg-slate-800 rounded-lg transition" title="축소">
+                <i data-lucide="zoom-out" class="w-4 h-4"></i>
+            </button>
+            <button onclick="resetView()" class="p-2 hover:bg-slate-800 rounded-lg transition" title="원점 이동">
+                <i data-lucide="crosshair" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- Warning Toast for Singular Matrix -->
+        <div id="singular-warning" class="hidden absolute top-4 right-4 bg-amber-500/10 border border-amber-500/30 text-amber-300 px-4 py-2.5 rounded-xl backdrop-blur-md flex items-center gap-2 text-xs shadow-xl animate-bounce">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
+            <span>행렬식이 0입니다 (특이행렬). 역행렬이 존재하지 않으며 차원이 축소됩니다.</span>
+        </div>
+    </main>
+
+    <script>
+        // --- State Management ---
+        const state = {
+            exprStr: "x^2 + y^2 - 16",
+            compiledExpr: null,
+            matrixTarget: [1.5, 0.5, 0.0, 1.0], // [a, b, c, d]
+            matrixCurrent: [1.5, 0.5, 0.0, 1.0],
+            animT: 1.0, // Interpolation parameter [0, 1]
+            isAnimating: false,
+            animFrameId: null,
+            
+            // Viewport
+            scale: 35, // pixels per unit
+            offsetX: 0,
+            offsetY: 0,
+            isDragging: false,
+            dragStart: { x: 0, y: 0 },
+
+            // Resolution
+            gridRes: 180,
+
+            // Conic Foci Points Data
+            originalFoci: [],
+            transformedFoci: [], // Real foci computed from g(u, v)
+            isConicSection: false
+        };
+
+        // DOM Elements
+        const canvas = document.getElementById('plotCanvas');
+        const ctx = canvas.getContext('2d');
+        const exprInput = document.getElementById('expr-input');
+        const funcStatus = document.getElementById('func-status');
+        const detBadge = document.getElementById('det-badge');
+        const matrixInfo = document.getElementById('matrix-info');
+        const singularWarning = document.getElementById('singular-warning');
+        const animSlider = document.getElementById('anim-slider');
+        const animProgress = document.getElementById('anim-progress');
+        const symbolicEqDisplay = document.getElementById('symbolic-eq-display');
+        const transformedEqDisplay = document.getElementById('transformed-eq-display');
+        const conicTypeBadge = document.getElementById('conic-type-badge');
+        const origCoeffsSpan = document.getElementById('orig-coeffs');
+        const discriminantValSpan = document.getElementById('discriminant-val');
+        const origFociText = document.getElementById('orig-foci-text');
+        const transFociText = document.getElementById('trans-foci-text');
+        const mappedFociText = document.getElementById('mapped-foci-text');
+        const fociInfoBox = document.getElementById('foci-info-box');
+
+        // --- Initialize ---
+        window.addEventListener('load', () => {
+            lucide.createIcons();
+            resizeCanvas();
+            compileExpression();
+            updateMatrixFromInputs();
+            setupEventListeners();
+            render();
+        });
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            render();
+        });
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        // --- Math & Expression Handling ---
+        function compileExpression() {
+            try {
+                const expr = exprInput.value.trim();
+                const compiled = math.compile(expr);
+                compiled.evaluate({ x: 1, y: 1 });
+                
+                state.compiledExpr = compiled;
+                state.exprStr = expr;
+                funcStatus.textContent = "유효함";
+                funcStatus.className = "text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                
+                updateMatrixMathDisplay();
+                render();
+            } catch (err) {
+                funcStatus.textContent = "구문 오류";
+                funcStatus.className = "text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20";
+            }
+        }
+
+        exprInput.addEventListener('input', compileExpression);
+
+        // --- Matrix & Preset Operations ---
+        function updateMatrixFromInputs() {
+            const a = parseFloat(document.getElementById('m-a').value) || 0;
+            const b = parseFloat(document.getElementById('m-b').value) || 0;
+            const c = parseFloat(document.getElementById('m-c').value) || 0;
+            const d = parseFloat(document.getElementById('m-d').value) || 0;
+
+            state.matrixTarget = [a, b, c, d];
+            
+            if (!state.isAnimating) {
+                state.matrixCurrent = [...state.matrixTarget];
+                state.animT = 1.0;
+                animSlider.value = 1;
+                animProgress.textContent = "100%";
+            }
+            
+            updateMatrixMathDisplay();
+            render();
+        }
+
+        function setCurvePreset(expr) {
+            exprInput.value = expr;
+            compileExpression();
+        }
+
+        function setMatrixPreset(a, b, c, d) {
+            document.getElementById('m-a').value = a;
+            document.getElementById('m-b').value = b;
+            document.getElementById('m-c').value = c;
+            document.getElementById('m-d').value = d;
+            updateMatrixFromInputs();
+        }
+
+        function updateMatrixMathDisplay() {
+            // Use current matrix during animation or target when static
+            const [a, b, c, d] = state.isAnimating ? state.matrixCurrent : state.matrixTarget;
+            const det = a * d - b * c;
+
+            detBadge.textContent = `det(M) = ${det.toFixed(2)}`;
+
+            if (Math.abs(det) < 1e-6) {
+                singularWarning.classList.remove('hidden');
+                matrixInfo.innerHTML = `역행렬 없음 (det = 0)<br><span class="text-rose-400">특이 행렬: 공간이 축소됩니다.</span>`;
+            } else {
+                singularWarning.classList.add('hidden');
+                const invA = (d / det).toFixed(2);
+                const invB = (-b / det).toFixed(2);
+                const invC = (-c / det).toFixed(2);
+                const invD = (a / det).toFixed(2);
+
+                matrixInfo.innerHTML = `M⁻¹ = \\begin{bmatrix} ${invA} & ${invB} \\\\ ${invC} & ${invD} \\end{bmatrix}<br>` +
+                    `치환식: x = (${invA})u + (${invB})v, y = (${invC})u + (${invD})v`;
+            }
+
+            computeTransformedAlgebraicEquation();
+        }
+
+        // --- Algebraic Conic Transformation Engine ---
+        function computeTransformedAlgebraicEquation() {
+            if (!state.compiledExpr) return;
+
+            const [a, b, c, d] = state.isAnimating ? state.matrixCurrent : state.matrixTarget;
+            const det = a * d - b * c;
+
+            if (Math.abs(det) < 1e-6) {
+                symbolicEqDisplay.innerHTML = `<span class="text-amber-400">M⁻¹ 가 존재하지 않습니다.</span>`;
+                transformedEqDisplay.innerHTML = `<span class="text-amber-400">특이행렬로 인해 방정식을 정의할 수 없습니다.</span>`;
+                conicTypeBadge.textContent = "퇴화됨";
+                conicTypeBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium";
+                discriminantValSpan.textContent = "0";
+                origCoeffsSpan.textContent = "N/A";
+                return;
+            }
+
+            // Inverse elements: x = p u + q v, y = r u + s v
+            const p = d / det;
+            const q = -b / det;
+            const r = -c / det;
+            const s = a / det;
+
+            // Generate Symbolic Linear Substitution Representation
+            buildSymbolicSubstitutionString(p, q, r, s);
+
+            // Extract coefficients of Ax^2 + Bxy + Cy^2 + Dx + Ey + F = 0
+            const f = (x, y) => {
+                try {
+                    return state.compiledExpr.evaluate({ x, y });
+                } catch {
+                    return NaN;
+                }
+            };
+
+            const F = f(0, 0);
+            const Dx = (f(1, 0) - f(-1, 0)) / 2;
+            const Ey = (f(0, 1) - f(0, -1)) / 2;
+            const A = (f(1, 0) + f(-1, 0) - 2 * F) / 2;
+            const C = (f(0, 1) + f(0, -1) - 2 * F) / 2;
+            const B = f(1, 1) - f(1, 0) - f(0, 1) + F;
+
+            // Test if quadratic form
+            const fTest = f(2, 2);
+            const quadTest = A*4 + B*4 + C*4 + Dx*2 + Ey*2 + F;
+            const isQuadratic = Math.abs(fTest - quadTest) < 1e-3 && !isNaN(A);
+
+            if (!isQuadratic) {
+                conicTypeBadge.textContent = "일반 음함수";
+                conicTypeBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-medium";
+                transformedEqDisplay.innerHTML = `<span class="text-slate-400 font-normal">비다항식 수치 치환 렌더링 적용 중</span>`;
+                origCoeffsSpan.textContent = "비다항식";
+                discriminantValSpan.textContent = "N/A";
+                return;
+            }
+
+            origCoeffsSpan.textContent = `A:${formatNum(A)}, B:${formatNum(B)}, C:${formatNum(C)}`;
+
+            // Expanded Transformation
+            // A(pu+qv)^2 + B(pu+qv)(ru+sv) + C(ru+sv)^2 + D(pu+qv) + E(ru+sv) + F = 0
+            const A_p = A * p * p + B * p * r + C * r * r;
+            const B_p = 2 * A * p * q + B * (p * s + q * r) + 2 * C * r * s;
+            const C_p = A * q * q + B * q * s + C * s * s;
+            const D_p = Dx * p + Ey * r;
+            const E_p = Dx * q + Ey * s;
+            const F_p = F;
+
+            // Discriminant Delta = B'^2 - 4A'C'
+            const disc = B_p * B_p - 4 * A_p * C_p;
+            discriminantValSpan.textContent = formatNum(disc);
+
+            // Conic Classification
+            let conicName = "이차곡선";
+            let badgeClass = "bg-indigo-500/20 text-indigo-300";
+
+            if (Math.abs(A_p) < 1e-4 && Math.abs(B_p) < 1e-4 && Math.abs(C_p) < 1e-4) {
+                conicName = "직선/평면";
+                badgeClass = "bg-slate-700 text-slate-300";
+            } else if (Math.abs(disc) < 1e-4) {
+                conicName = "포물선 (Parabola)";
+                badgeClass = "bg-amber-500/20 text-amber-300";
+            } else if (disc < -1e-4) {
+                if (Math.abs(A_p - C_p) < 1e-4 && Math.abs(B_p) < 1e-4) {
+                    conicName = "원 (Circle)";
+                    badgeClass = "bg-cyan-500/20 text-cyan-300";
+                } else {
+                    conicName = "타원 (Ellipse)";
+                    badgeClass = "bg-emerald-500/20 text-emerald-300";
+                }
+            } else if (disc > 1e-4) {
+                conicName = "쌍곡선 (Hyperbola)";
+                badgeClass = "bg-rose-500/20 text-rose-300";
+            }
+
+            conicTypeBadge.textContent = conicName;
+            conicTypeBadge.className = `text-[10px] px-2 py-0.5 rounded-full font-medium ${badgeClass}`;
+
+            // Format Expanded Polynomial
+            transformedEqDisplay.innerHTML = formatQuadraticEquation(A_p, B_p, C_p, D_p, E_p, F_p);
+        }
+
+        function buildSymbolicSubstitutionString(p, q, r, s) {
+            const formatSub = (c1, c2) => {
+                let p1 = Math.abs(c1) < 1e-4 ? "" : `${formatNum(c1)}u`;
+                let p2 = Math.abs(c2) < 1e-4 ? "" : (c2 > 0 ? (p1 ? ` + ${formatNum(c2)}v` : `${formatNum(c2)}v`) : ` - ${formatNum(Math.abs(c2))}v`);
+                if (!p1 && !p2) return "0";
+                return `(${p1}${p2})`;
+            };
+
+            const subX = formatSub(p, q);
+            const subY = formatSub(r, s);
+
+            let rawStr = state.exprStr;
+            // Replace 'x' and 'y' safely without breaking Math operators
+            let substitutedStr = rawStr.replace(/\bx\b/g, subX).replace(/\by\b/g, subY);
+            symbolicEqDisplay.textContent = `${substitutedStr} = 0`;
+        }
+
+        function formatNum(n) {
+            if (Math.abs(n) < 1e-4) return "0";
+            const rounded = Math.round(n * 100) / 100;
+            return rounded.toString();
+        }
+
+        function formatQuadraticEquation(A, B, C, D, E, F) {
+            let terms = [];
+
+            const addTerm = (coeff, varStr) => {
+                if (Math.abs(coeff) < 1e-4) return;
+                const rounded = Math.round(coeff * 100) / 100;
+                if (rounded === 0) return;
+
+                let sign = terms.length === 0 ? (rounded < 0 ? "-" : "") : (rounded < 0 ? " - " : " + ");
+                let absVal = Math.abs(rounded);
+                let valStr = absVal === 1 && varStr !== "" ? "" : absVal.toString();
+
+                terms.push(`${sign}${valStr}${varStr}`);
+            };
+
+            addTerm(A, "u²");
+            addTerm(B, "uv");
+            addTerm(C, "v²");
+            addTerm(D, "u");
+            addTerm(E, "v");
+            addTerm(F, "");
+
+            if (terms.length === 0) return "0 = 0";
+            return terms.join("") + " = 0";
+        }
+
+        // --- Animation Interpolation ---
+        function setAnimProgress(t) {
+            state.animT = t;
+            animSlider.value = t;
+            animProgress.textContent = `${Math.round(t * 100)}%`;
+
+            // Interpolate from Identity [1, 0, 0, 1] to Target [a, b, c, d]
+            const [ta, tb, tc, td] = state.matrixTarget;
+            state.matrixCurrent = [
+                1 + (ta - 1) * t,
+                0 + (tb - 0) * t,
+                0 + (tc - 0) * t,
+                1 + (td - 1) * t
+            ];
+            updateMatrixMathDisplay();
+            render();
+        }
+
+        // --- Animation Loop Controls ---
+        function toggleAnimation() {
+            if (state.isAnimating) {
+                stopAnimation();
+            } else {
+                startAnimation();
+            }
+        }
+
+        function startAnimation() {
+            state.isAnimating = true;
+            document.getElementById('play-icon').setAttribute('data-lucide', 'pause');
+            document.getElementById('play-text').textContent = "일시정지";
+            lucide.createIcons();
+
+            let startTime = null;
+            const duration = 2000; // 2 seconds
+            const startT = state.animT >= 1 ? 0 : state.animT;
+
+            function animStep(timestamp) {
+                if (!startTime) startTime = timestamp;
+                const elapsed = timestamp - startTime;
+                const progress = Math.min(startT + (elapsed / duration) * (1 - startT), 1);
+
+                setAnimProgress(progress);
+
+                if (progress < 1 && state.isAnimating) {
+                    state.animFrameId = requestAnimationFrame(animStep);
+                } else {
+                    stopAnimation();
+                }
+            }
+
+            state.animFrameId = requestAnimationFrame(animStep);
+        }
+
+        function stopAnimation() {
+            state.isAnimating = false;
+            if (state.animFrameId) cancelAnimationFrame(state.animFrameId);
+            document.getElementById('play-icon').setAttribute('data-lucide', 'play');
+            document.getElementById('play-text').textContent = "변환 실행";
+            lucide.createIcons();
+        }
+
+        function resetAnimation() {
+            stopAnimation();
+            setAnimProgress(0);
+        }
+
+        animSlider.addEventListener('input', (e) => {
+            stopAnimation();
+            setAnimProgress(parseFloat(e.target.value));
+        });
+
+        // --- Algebraic Conic Transformation Engine & Focus Calculation ---
+        function computeTransformedAlgebraicEquation() {
+            if (!state.compiledExpr) return;
+
+            const [a, b, c, d] = state.isAnimating ? state.matrixCurrent : state.matrixTarget;
+            const det = a * d - b * c;
+
+            if (Math.abs(det) < 1e-6) {
+                symbolicEqDisplay.innerHTML = `<span class="text-amber-400">M⁻¹ 가 존재하지 않습니다.</span>`;
+                transformedEqDisplay.innerHTML = `<span class="text-amber-400">특이행렬로 인해 방정식을 정의할 수 없습니다.</span>`;
+                conicTypeBadge.textContent = "퇴화됨";
+                conicTypeBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium";
+                discriminantValSpan.textContent = "0";
+                origCoeffsSpan.textContent = "N/A";
+                state.originalFoci = [];
+                state.transformedFoci = [];
+                state.isConicSection = false;
+                updateFociUI();
+                return;
+            }
+
+            // Inverse elements: x = p u + q v, y = r u + s v
+            const p = d / det;
+            const q = -b / det;
+            const r = -c / det;
+            const s = a / det;
+
+            buildSymbolicSubstitutionString(p, q, r, s);
+
+            const f = (x, y) => {
+                try {
+                    return state.compiledExpr.evaluate({ x, y });
+                } catch {
+                    return NaN;
+                }
+            };
+
+            const F = f(0, 0);
+            const Dx = (f(1, 0) - f(-1, 0)) / 2;
+            const Ey = (f(0, 1) - f(0, -1)) / 2;
+            const A = (f(1, 0) + f(-1, 0) - 2 * F) / 2;
+            const C = (f(0, 1) + f(0, -1) - 2 * F) / 2;
+            const B = f(1, 1) - f(1, 0) - f(0, 1) + F;
+
+            const fTest = f(2, 2);
+            const quadTest = A*4 + B*4 + C*4 + Dx*2 + Ey*2 + F;
+            const isQuadratic = Math.abs(fTest - quadTest) < 1e-3 && !isNaN(A);
+
+            if (!isQuadratic) {
+                conicTypeBadge.textContent = "일반 음함수";
+                conicTypeBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-medium";
+                transformedEqDisplay.innerHTML = `<span class="text-slate-400 font-normal">비다항식 수치 치환 렌더링 적용 중</span>`;
+                origCoeffsSpan.textContent = "비다항식";
+                discriminantValSpan.textContent = "N/A";
+                state.originalFoci = [];
+                state.transformedFoci = [];
+                state.isConicSection = false;
+                updateFociUI();
+                return;
+            }
+
+            origCoeffsSpan.textContent = `A:${formatNum(A)}, B:${formatNum(B)}, C:${formatNum(C)}`;
+
+            // Expanded Transformation Coefficients for g(u, v) = A' u^2 + B' uv + C' v^2 + D' u + E' v + F' = 0
+            const A_p = A * p * p + B * p * r + C * r * r;
+            const B_p = 2 * A * p * q + B * (p * s + q * r) + 2 * C * r * s;
+            const C_p = A * q * q + B * q * s + C * s * s;
+            const D_p = Dx * p + Ey * r;
+            const E_p = Dx * q + Ey * s;
+            const F_p = F;
+
+            const disc = B_p * B_p - 4 * A_p * C_p;
+            discriminantValSpan.textContent = formatNum(disc);
+
+            let conicName = "이차곡선";
+            let badgeClass = "bg-indigo-500/20 text-indigo-300";
+
+            if (Math.abs(A_p) < 1e-4 && Math.abs(B_p) < 1e-4 && Math.abs(C_p) < 1e-4) {
+                conicName = "직선/평면";
+                badgeClass = "bg-slate-700 text-slate-300";
+            } else if (Math.abs(disc) < 1e-4) {
+                conicName = "포물선 (Parabola)";
+                badgeClass = "bg-amber-500/20 text-amber-300";
+            } else if (disc < -1e-4) {
+                if (Math.abs(A_p - C_p) < 1e-4 && Math.abs(B_p) < 1e-4) {
+                    conicName = "원 (Circle)";
+                    badgeClass = "bg-cyan-500/20 text-cyan-300";
+                } else {
+                    conicName = "타원 (Ellipse)";
+                    badgeClass = "bg-emerald-500/20 text-emerald-300";
+                }
+            } else if (disc > 1e-4) {
+                conicName = "쌍곡선 (Hyperbola)";
+                badgeClass = "bg-rose-500/20 text-rose-300";
+            }
+
+            conicTypeBadge.textContent = conicName;
+            conicTypeBadge.className = `text-[10px] px-2 py-0.5 rounded-full font-medium ${badgeClass}`;
+
+            transformedEqDisplay.innerHTML = formatQuadraticEquation(A_p, B_p, C_p, D_p, E_p, F_p);
+
+            // 1. Compute Foci of Original Curve f(x, y) = 0
+            state.originalFoci = calculateConicFoci(A, B, C, Dx, Ey, F);
+            
+            // 2. Compute TRUE Foci of Transformed Curve g(u, v) = 0
+            state.transformedFoci = calculateConicFoci(A_p, B_p, C_p, D_p, E_p, F_p);
+
+            state.isConicSection = true;
+            updateFociUI();
+        }
+
+        // --- Exact Geometric Foci Calculation for General Conic Ax^2 + Bxy + Cy^2 + Dx + Ey + F = 0 ---
+        function calculateConicFoci(A, B, C, D, E, F) {
+            let fociList = [];
+            const detCenter = 4 * A * C - B * B;
+            
+            // Parabola case (detCenter ~ 0)
+            if (Math.abs(detCenter) < 1e-5) {
+                const theta = B === 0 ? (A === 0 ? Math.PI / 2 : 0) : 0.5 * Math.atan2(B, A - C);
+                const cosT = Math.cos(theta);
+                const sinT = Math.sin(theta);
+                
+                const A_rot = A * cosT * cosT + B * cosT * sinT + C * sinT * sinT;
+                const D_rot = D * cosT + E * sinT;
+                const E_rot = -D * sinT + E * cosT;
+
+                if (Math.abs(A_rot) > 1e-4 && Math.abs(E_rot) > 1e-4) {
+                    const h_prime = -D_rot / (2 * A_rot);
+                    const k_prime = (A_rot * h_prime * h_prime - F) / E_rot;
+                    const p = -E_rot / (4 * A_rot);
+
+                    const fx_prime = h_prime;
+                    const fy_prime = k_prime + p;
+
+                    const fx = fx_prime * cosT - fy_prime * sinT;
+                    const fy = fx_prime * sinT + fy_prime * cosT;
+                    fociList.push({ x: fx, y: fy, label: "F" });
+                }
+                return fociList;
+            }
+
+            // Central Conics (Ellipse, Circle, Hyperbola)
+            const h = (B * E - 2 * C * D) / detCenter;
+            const k = (B * D - 2 * A * E) / detCenter;
+
+            const F_prime = A * h * h + B * h * k + C * k * k + D * h + E * k + F;
+            if (Math.abs(F_prime) < 1e-6) return fociList;
+
+            let theta = 0;
+            if (Math.abs(B) > 1e-6) {
+                theta = 0.5 * Math.atan2(B, A - C);
+            }
+
+            const cosT = Math.cos(theta);
+            const sinT = Math.sin(theta);
+
+            const A_rot = A * cosT * cosT + B * cosT * sinT + C * sinT * sinT;
+            const C_rot = A * sinT * sinT - B * cosT * sinT + C * cosT * cosT;
+
+            const a2 = -F_prime / A_rot;
+            const b2 = -F_prime / C_rot;
+
+            if (a2 > 0 && b2 > 0) {
+                if (Math.abs(a2 - b2) < 1e-5) {
+                    fociList.push({ x: h, y: k, label: "Center" });
+                } else if (a2 > b2) {
+                    const c_dist = Math.sqrt(a2 - b2);
+                    fociList.push(
+                        { x: h + c_dist * cosT, y: k + c_dist * sinT, label: "F1" },
+                        { x: h - c_dist * cosT, y: k - c_dist * sinT, label: "F2" }
+                    );
+                } else {
+                    const c_dist = Math.sqrt(b2 - a2);
+                    fociList.push(
+                        { x: h - c_dist * sinT, y: k + c_dist * cosT, label: "F1" },
+                        { x: h + c_dist * sinT, y: k - c_dist * cosT, label: "F2" }
+                    );
+                }
+            } else if (a2 * b2 < 0) {
+                let c_dist, dirX, dirY;
+                if (a2 > 0) {
+                    c_dist = Math.sqrt(a2 + Math.abs(b2));
+                    dirX = cosT;
+                    dirY = sinT;
+                } else {
+                    c_dist = Math.sqrt(b2 + Math.abs(a2));
+                    dirX = -sinT;
+                    dirY = cosT;
+                }
+                fociList.push(
+                    { x: h + c_dist * dirX, y: k + c_dist * dirY, label: "F1" },
+                    { x: h - c_dist * dirX, y: k - c_dist * dirY, label: "F2" }
+                );
+            }
+
+            return fociList;
+        }
+
+        function updateFociUI() {
+            if (!state.isConicSection || (state.originalFoci.length === 0 && state.transformedFoci.length === 0)) {
+                fociInfoBox.classList.add('hidden');
+                return;
+            }
+            fociInfoBox.classList.remove('hidden');
+
+            const [a, b, c, d] = state.isAnimating ? state.matrixCurrent : state.matrixTarget;
+
+            const origStr = state.originalFoci.map(f => `${f.label}(${formatNum(f.x)}, ${formatNum(f.y)})`).join(', ');
+            
+            const transStr = state.transformedFoci.map(f => `${f.label}'_g(${formatNum(f.x)}, ${formatNum(f.y)})`).join(', ');
+
+            const mappedStr = state.originalFoci.map(f => {
+                const u = a * f.x + b * f.y;
+                const v = c * f.x + d * f.y;
+                return `M·${f.label}(${formatNum(u)}, ${formatNum(v)})`;
+            }).join(', ');
+
+            origFociText.textContent = `원본 F(x,y): ${origStr || '없음'}`;
+            transFociText.textContent = `실제 변환 초점 F'_g(u,v): ${transStr || '없음'}`;
+            mappedFociText.textContent = `선형매핑점 M·F: ${mappedStr || '없음'}`;
+        }
+
+        // --- Contour Plotting via Marching Squares ---
+        function drawImplicitCurve(evalFunc, color, strokeWidth) {
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
+
+            const gridRes = parseInt(document.getElementById('grid-res').value) || state.gridRes;
+            const stepX = w / gridRes;
+            const stepY = h / gridRes;
+
+            // Pre-calculate function grid values
+            const values = new Float32Array((gridRes + 1) * (gridRes + 1));
+            
+            for (let i = 0; i <= gridRes; i++) {
+                const px = i * stepX;
+                const wx = (px - w / 2 - state.offsetX) / state.scale;
+
+                for (let j = 0; j <= gridRes; j++) {
+                    const py = j * stepY;
+                    const wy = -(py - h / 2 - state.offsetY) / state.scale;
+                    
+                    values[i * (gridRes + 1) + j] = evalFunc(wx, wy);
+                }
+            }
+
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = strokeWidth;
+
+            // Marching Squares Cell Contours
+            for (let i = 0; i < gridRes; i++) {
+                for (let j = 0; j < gridRes; j++) {
+                    const v0 = values[i * (gridRes + 1) + j];             // Top-Left
+                    const v1 = values[(i + 1) * (gridRes + 1) + j];         // Top-Right
+                    const v2 = values[(i + 1) * (gridRes + 1) + (j + 1)];   // Bottom-Right
+                    const v3 = values[i * (gridRes + 1) + (j + 1)];         // Bottom-Left
+
+                    if (isNaN(v0) || isNaN(v1) || isNaN(v2) || isNaN(v3)) continue;
+
+                    let mask = 0;
+                    if (v0 > 0) mask |= 1;
+                    if (v1 > 0) mask |= 2;
+                    if (v2 > 0) mask |= 4;
+                    if (v3 > 0) mask |= 8;
+
+                    if (mask === 0 || mask === 15) continue;
+
+                    const x0 = i * stepX, y0 = j * stepY;
+                    const x1 = (i + 1) * stepX, y1 = (j + 1) * stepY;
+
+                    // Linear Interpolation for smooth edges
+                    const interpolate = (vA, vB, pA, pB) => pA + (0 - vA) / (vB - vA) * (pB - pA);
+
+                    const top = { x: interpolate(v0, v1, x0, x1), y: y0 };
+                    const right = { x: x1, y: interpolate(v1, v2, y0, y1) };
+                    const bottom = { x: interpolate(v3, v2, x0, x1), y: y1 };
+                    const left = { x: x0, y: interpolate(v0, v3, y0, y1) };
+
+                    const line = (pA, pB) => {
+                        ctx.moveTo(pA.x, pA.y);
+                        ctx.lineTo(pB.x, pB.y);
+                    };
+
+                    switch (mask) {
+                        case 1: case 14: line(left, top); break;
+                        case 2: case 13: line(top, right); break;
+                        case 3: case 12: line(left, right); break;
+                        case 4: case 11: line(right, bottom); break;
+                        case 5: line(left, top); line(right, bottom); break;
+                        case 6: case 9:  line(top, bottom); break;
+                        case 7: case 8:  line(left, bottom); break;
+                        case 10: line(top, right); line(left, bottom); break;
+                    }
+                }
+            }
+            ctx.stroke();
+        }
+
+        // --- Render Foci Points ---
+        function drawFociPoints() {
+            if (!document.getElementById('toggle-foci').checked || !state.isConicSection) return;
+
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
+
+            const toScreen = (x, y) => ({
+                px: w / 2 + state.offsetX + x * state.scale,
+                py: h / 2 + state.offsetY - y * state.scale
+            });
+
+            // 1. Original Foci (Purple Dot)
+            state.originalFoci.forEach(f => {
+                const { px, py } = toScreen(f.x, f.y);
+                ctx.fillStyle = '#a855f7';
+                ctx.beginPath();
+                ctx.arc(px, py, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                ctx.font = '11px JetBrains Mono';
+                ctx.fillStyle = '#c084fc';
+                ctx.fillText(f.label, px + 8, py - 6);
+            });
+
+            // 2. Mapped Focus (M · F) - Diamond Anchor (Amber)
+            const [a, b, c, d] = state.isAnimating ? state.matrixCurrent : state.matrixTarget;
+            state.originalFoci.forEach(f => {
+                const u = a * f.x + b * f.y;
+                const v = c * f.x + d * f.y;
+                const { px, py } = toScreen(u, v);
+
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(px, py - 6);
+                ctx.lineTo(px + 6, py);
+                ctx.lineTo(px, py + 6);
+                ctx.lineTo(px - 6, py);
+                ctx.closePath();
+                ctx.stroke();
+
+                ctx.font = '10px JetBrains Mono';
+                ctx.fillStyle = '#fbbf24';
+                ctx.fillText(`M·${f.label}`, px + 8, py + 10);
+            });
+
+            // 3. True Transformed Foci F'_g (Rose Glow Circle)
+            state.transformedFoci.forEach(f => {
+                const { px, py } = toScreen(f.x, f.y);
+
+                // Outer Pulse Ring
+                ctx.strokeStyle = 'rgba(244, 63, 94, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(px, py, 9, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Core Fill
+                ctx.fillStyle = '#f43f5e';
+                ctx.beginPath();
+                ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                ctx.font = 'bold 11px JetBrains Mono';
+                ctx.fillStyle = '#fda4af';
+                ctx.fillText(`${f.label}'_g`, px + 10, py - 6);
+            });
+        }
+
+        // --- Grid & Axis Renderer ---
+        function drawGridAndAxes() {
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Grid spacing logic
+            let gridStep = state.scale;
+            while (gridStep < 20) gridStep *= 2;
+            while (gridStep > 100) gridStep /= 2;
+
+            const startX = (w / 2 + state.offsetX) % gridStep;
+            const startY = (h / 2 + state.offsetY) % gridStep;
+
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+
+            // Vertical Grid
+            ctx.beginPath();
+            for (let x = startX; x < w; x += gridStep) {
+                ctx.moveTo(Math.floor(x) + 0.5, 0);
+                ctx.lineTo(Math.floor(x) + 0.5, h);
+            }
+            // Horizontal Grid
+            for (let y = startY; y < h; y += gridStep) {
+                ctx.moveTo(0, Math.floor(y) + 0.5);
+                ctx.lineTo(w, Math.floor(y) + 0.5);
+            }
+            ctx.stroke();
+
+            // Coordinate Axes (X & Y)
+            const axisX = w / 2 + state.offsetX;
+            const axisY = h / 2 + state.offsetY;
+
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1.5;
+
+            ctx.beginPath();
+            // X Axis
+            ctx.moveTo(0, Math.floor(axisY) + 0.5);
+            ctx.lineTo(w, Math.floor(axisY) + 0.5);
+            // Y Axis
+            ctx.moveTo(Math.floor(axisX) + 0.5, 0);
+            ctx.lineTo(Math.floor(axisX) + 0.5, h);
+            ctx.stroke();
+        }
+
+        // --- Main Canvas Render Cycle ---
+        function render() {
+            if (!state.compiledExpr) return;
+
+            drawGridAndAxes();
+
+            // 1. Draw Original Curve f(x, y) = 0
+            drawImplicitCurve((x, y) => {
+                try {
+                    return state.compiledExpr.evaluate({ x, y });
+                } catch {
+                    return NaN;
+                }
+            }, '#22d3ee', 2);
+
+            // 2. Draw Transformed Curve f(M^-1 [u, v]^T) = 0
+            const [a, b, c, d] = state.isAnimating ? state.matrixCurrent : state.matrixTarget;
+            const det = a * d - b * c;
+
+            if (Math.abs(det) > 1e-6) {
+                const p = d / det;
+                const q = -b / det;
+                const r = -c / det;
+                const s = a / det;
+
+                drawImplicitCurve((u, v) => {
+                    const x = p * u + q * v;
+                    const y = r * u + s * v;
+                    try {
+                        return state.compiledExpr.evaluate({ x, y });
+                    } catch {
+                        return NaN;
+                    }
+                }, '#f43f5e', 2.5);
+            }
+
+            // 3. Render Foci
+            drawFociPoints();
+        }
+
+        // --- Interactive View Controls (Zoom & Drag) ---
+        function setupEventListeners() {
+            canvas.addEventListener('mousedown', (e) => {
+                state.isDragging = true;
+                state.dragStart = { x: e.clientX - state.offsetX, y: e.clientY - state.offsetY };
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!state.isDragging) return;
+                state.offsetX = e.clientX - state.dragStart.x;
+                state.offsetY = e.clientY - state.dragStart.y;
+                render();
+            });
+
+            window.addEventListener('mouseup', () => {
+                state.isDragging = false;
+            });
+
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+                zoom(zoomFactor);
+            }, { passive: false });
+        }
+
+        function zoom(factor) {
+            state.scale *= factor;
+            render();
+        }
+
+        function resetView() {
+            state.scale = 35;
+            state.offsetX = 0;
+            state.offsetY = 0;
+            render();
+        }
+    </script>
+</body>
+</html>
